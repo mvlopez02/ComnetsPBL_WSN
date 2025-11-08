@@ -2,6 +2,10 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <stdlib.h>
+#include <inttypes.h>
+#include "random.h"
+
 #include "thread.h"
 #include "shell.h"
 #include "msg.h"
@@ -60,17 +64,29 @@ static void PacketReceptionHandler(gnrc_pktsnip_t *pkt)
         }
       case GNRC_NETTYPE_UNDEF: // Payload
         {
-          // FILL IN
-          //
-          //
-          //
-          //
-          char buf[32]; 
-          memset(buf, 0x00, 32);
-          memcpy(buf, snip->data, snip->size);
-          printf("payload: \"%s\" , length %d\n", buf, snip->size);
-          //
-          //
+          // 
+          
+          // Local buffer for the payload data
+          char buf[32];
+          memset(buf, 0x00, sizeof(buf));
+
+          // Copy payload bytes to local buffer and null-terminate
+          size_t len = (snip->size < sizeof(buf) - 1) ? snip->size : sizeof(buf) - 1;
+          memcpy(buf, snip->data, len);
+          buf[len] = '\0';
+
+          // Convert ASCII string to number
+          uint16_t value = (uint16_t)atoi(buf);
+
+          // Keep running stats
+          static uint32_t sum = 0;
+          static uint32_t count = 0;
+          sum += value;
+          count++;
+          uint32_t avg = (uint32_t)(sum / count);
+
+          printf("[ROOT] received: %u | count=%u | avg=%u | sum=%u\n", value, count, avg, sum);
+
           //
           break;
         }
@@ -86,18 +102,17 @@ static void PacketReceptionHandler(gnrc_pktsnip_t *pkt)
 // Function for sensor node to periodically do sensing and sending tasks
 static void PeriodicSensingTask(void)
 {
-  // FILL IN
-  //
-  //
-  //
-  //
-  char buf[16];
-  memset(buf, 0x00, sizeof(buf));
-  strcpy(buf, "TEST DATA"); 
-  //
-  //
-  //
+  // Generate a random number between 0 and 1024
+  uint16_t value = (uint16_t)(random_uint32() % 1025u);
+
+  // Convert number to string (ASCII)
+  char buf[8];
+  snprintf(buf, sizeof(buf), "%u", value);
+
+  // Send to root
   WSNUtil_Send(rootAddrStr, buf, strlen(buf));
+
+  printf("[SENSOR] sent value: %u\n", value);
 }
 
 void *WSN_NodeThread(void *arg)
@@ -154,6 +169,8 @@ void *WSN_NodeThread(void *arg)
     }
   } while (running);
   printf("Thread exiting\n");
+  return NULL;
+  
 }
 
 void WSN_Init(WSN_Role_e role)
@@ -175,6 +192,7 @@ void WSN_Init(WSN_Role_e role)
   threadPid = thread_create(threadStack, sizeof(threadStack), THREAD_PRIORITY_MAIN - 1, 0, WSN_NodeThread, NULL, (role == WSN_SENSOR_ROLE) ? "wsn_sensor" : "wsn_root");
 
   if (myRole == WSN_ROOT_ROLE)
+  //Set up ROOT role
   {
     netif_t *mainIface = netif_iter(NULL);
     int16_t mainIfaceId = netif_get_id(mainIface);
@@ -216,7 +234,7 @@ void WSN_Init(WSN_Role_e role)
   }
   else if (myRole == WSN_SENSOR_ROLE)
   {
-    //
+    // Sensors don’t open a server; they will send UDP on a timer.
   }
 }
 
@@ -226,7 +244,7 @@ void WSN_Deinit(void)
   running = false;
 }
 
-void WSN_CmdHandler(int argc, char **argv)
+int WSN_CmdHandler(int argc, char **argv) //void
 {
   if (argc < 2)
   {
@@ -248,7 +266,7 @@ void WSN_CmdHandler(int argc, char **argv)
     if (myRole == WSN_UNSET_ROLE)
     {
       printf("Need to set role first! wsn <sensor|root>\n");
-      return;
+      return 1; 
     }
     else if (myRole == WSN_SENSOR_ROLE)
     {
@@ -283,6 +301,7 @@ void WSN_CmdHandler(int argc, char **argv)
   }
   return 1;
 }
+//This registers a shell command named wsn, which executes WSN_CmdHandler
 SHELL_COMMAND(wsn, "WSN Command handler", WSN_CmdHandler);
 
 int main(void)

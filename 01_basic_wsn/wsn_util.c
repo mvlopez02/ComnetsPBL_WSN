@@ -2,6 +2,10 @@
 #include "net/gnrc/udp.h"
 #include "net/gnrc/netreg.h"
 
+#include "net/gnrc/ipv6.h"   
+#include "net/gnrc/netif.h"  
+#include "net/utils.h"        
+
 #define DEFAULT_PORT (1)
 
 static gnrc_netreg_entry_t server = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, KERNEL_PID_UNDEF);
