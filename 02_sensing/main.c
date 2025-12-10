@@ -157,6 +157,8 @@ void *WSN_NodeThread(void *arg)
     }
   } while (running);
   printf("Thread exiting\n");
+
+  return NULL;
 }
 
 void WSN_Init(WSN_Role_e role)
@@ -251,7 +253,7 @@ int WSN_CmdHandler(int argc, char **argv)
     if (myRole == WSN_UNSET_ROLE)
     {
       printf("Need to set role first! wsn <sensor|root>\n");
-      return;
+      return 1;
     }
     else if (myRole == WSN_SENSOR_ROLE)
     {
@@ -284,9 +286,9 @@ int WSN_CmdHandler(int argc, char **argv)
   {
     printf("Current role: %s\n", (myRole == WSN_SENSOR_ROLE) ? "SENSOR" : "ROOT");
   }
-  return 1;
+  return 0;
 }
-SHELL_COMMAND(wsn, "WSN Command handler", WSN_CmdHandler);
+SHELL_COMMAND(wsn, "WSN Command handler 02", WSN_CmdHandler);
 
 int main(void)
 {

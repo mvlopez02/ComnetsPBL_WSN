@@ -291,7 +291,7 @@ int WSN_CmdHandler(int argc, char **argv) //void
     goto usage;
   }
 
-  return;
+  return 0;
 
   usage:
   printf("Usage: wsn <sensor|root|start|stop|deinit>\n");
@@ -299,10 +299,10 @@ int WSN_CmdHandler(int argc, char **argv) //void
   {
     printf("Current role: %s\n", (myRole == WSN_SENSOR_ROLE) ? "SENSOR" : "ROOT");
   }
-  return;
+  return 1;
 }
 //This registers a shell command named wsn, which executes WSN_CmdHandler
-SHELL_COMMAND(wsn, "WSN Command handler", WSN_CmdHandler);
+SHELL_COMMAND(wsn, "WSN Command handler 01", WSN_CmdHandler);
 
 int main(void)
 {

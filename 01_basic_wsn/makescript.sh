@@ -45,11 +45,11 @@ echo -e "${GREEN}Building for board $BOARD ${NC}"
 ret=1
 if [ $(which compiledb) ]; then
   echo "compiledb found in system."
-  $DRY compiledb make RIOTBASE=$RIOTBASE BOARD=$BOARD WERROR=0 UF2_SOFTDEV=DROP
+  $DRY compiledb gmake RIOTBASE=$RIOTBASE BOARD=$BOARD WERROR=0 UF2_SOFTDEV=DROP
   ret="$?"
   cp compile_commands.json "$PROJBASE"
 else
-  $DRY make RIOTBASE=$RIOTBASE BOARD=$BOARD WERROR=0 UF2_SOFTDEV=DROP
+  $DRY gmake RIOTBASE=$RIOTBASE BOARD=$BOARD WERROR=0 UF2_SOFTDEV=DROP
   ret="$?"
 fi
 
@@ -118,12 +118,21 @@ if [ "$PORT" ]; then
       echo "WAITING FOR VOLUME TO COME UP"
       sleep 3
       cp "$uf2filename" /media/"$(whoami)"/XIAO-SENSE/
-    else # If macos
+
+    else # If macOS
       # set our device to boot mode
       stty -f "$p" raw ispeed 1200 ospeed 1200 cs8 -cstopb ignpar eol 255 eof 255
       echo "WAITING FOR VOLUME TO COME UP"
       sleep 3
-      cp "$uf2filename" /Volumes/XIAO-SENSE/
+
+      if [ -d "/Volumes/XIAO-SENSE" ]; then
+        cp "$uf2filename" "/Volumes/XIAO-SENSE/"
+      elif [ -d "/Volumes/NO NAME" ]; then
+        cp "$uf2filename" "/Volumes/NO NAME/"
+      else
+        echo "ERROR: UF2 volume not found (no XIAO-SENSE or NO NAME)"
+        exit 1
+      fi
     fi
 
     echo -e "${GREEN}PROGRAMMED $p${NC}"

@@ -1,5 +1,6 @@
 #include "sensor.h"
 #include "shell.h"
+#include <stdlib.h>
 
 i2c_t i2cDevice;
 
@@ -124,6 +125,8 @@ bool Sensor_GetStatus(uint8_t *status)
 {
   // The “status” register contains two bits which indicate the status of the device.
   // Optional
+
+  return true;
 }
 
 bool Sensor_DoTemperatureReading(uint32_t *reading)
