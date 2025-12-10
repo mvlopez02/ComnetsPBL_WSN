@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <inttypes.h>   
 
 #include "thread.h"
 #include "shell.h"
@@ -87,20 +88,29 @@ static void PacketReceptionHandler(gnrc_pktsnip_t *pkt)
 }
 
 // Function for sensor node to periodically do sensing and sending tasks
+
 static void PeriodicSensingTask(void)
 {
-  // FILL IN
-  //
-  //
-  //
-  //
-  char buf[16];
-  memset(buf, 0x00, sizeof(buf));
-  strcpy(buf, "TEST DATA"); 
-  //
-  //
-  //
-  WSNUtil_Send(rootAddrStr, buf, strlen(buf));
+    uint32_t temp_raw = 0;
+
+    if (!Sensor_DoTemperatureReading(&temp_raw)) {
+        puts("[SENSOR] Temperature read FAILED");
+        return;
+    }
+
+    // temp_raw is in 0.01 °C. For sending, we can just send the integer as ASCII.
+    char buf[16];
+    int len = snprintf(buf, sizeof(buf), "%" PRIu32, temp_raw);
+
+    if (len <= 0) {
+        puts("[SENSOR] snprintf failed");
+        return;
+    }
+
+    printf("[SENSOR] measured: %lu -> sending \"%s\"\n",
+           (unsigned long)temp_raw, buf);
+
+    //WSNUtil_Send(rootAddrStr, buf, (size_t)len);
 }
 
 void *WSN_NodeThread(void *arg)

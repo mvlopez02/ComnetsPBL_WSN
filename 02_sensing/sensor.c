@@ -10,6 +10,8 @@ static uint16_t dig_T1 = 0; // Reference manual chapter 3.11.2
 static int16_t  dig_T2 = 0;
 static int16_t  dig_T3 = 0;
 
+static int32_t  t_fine; // 
+
 static inline void _print_i2c_read(i2c_t dev, uint16_t *reg, uint8_t *buf, int len)
 {
     printf("Success: i2c_%i read %i byte(s) ", dev, len);
@@ -106,9 +108,21 @@ static int cmd_i2c_read_regs(int argc, char **argv)
 
 bool Sensor_GetChipId(uint8_t *id)
 {
-  // Get chip id. This should be a constant value and the value can be found in the manual. ch 4.3.1
-  return true; // return true if success
+    uint8_t flags = 0;
+
+    int res = i2c_read_reg(i2cDevice,
+                           TEMP_SENSOR_I2C_ADDR,
+                           TEMP_SENSOR_REG_CHIP_ID,
+                           id,
+                           flags);
+    if (res != 0) {
+        return false;     // I2C failed
+    }
+
+    return (*id == TEMP_SENSOR_CHIP_ID);
 }
+
+
 
 bool Sensor_Reset(void)
 {
@@ -131,32 +145,77 @@ bool Sensor_GetStatus(uint8_t *status)
 
 bool Sensor_DoTemperatureReading(uint32_t *reading)
 {
-  // First, Read the 3 temperature reading registers temp_msb, temp_lsb, temp_xlsb.
+    uint8_t data[3];
+    uint8_t flags = 0;
 
-  // Then, concatenate the raw bytes to get the raw adc temperature reading. 
-  // Note that: 3.11.3 "Temperature value is expected to be in 20 bit format, positive, stored in a 32 bit signed int"
-  // i.e. [MSB][LSB][xLSB], though in our case xLSB will be zeros. Still, those zeros should be in the 20 bits
-  
-  // Finally, use the "bmp280_compensate_T_int32" function given in the reference manual to get the actual reading in 0.01 degrees celcius
+    int res = i2c_read_regs(i2cDevice, TEMP_SENSOR_I2C_ADDR, TEMP_SENSOR_REG_TEMP_MSB, data, 3, flags);
 
-  // Put the final reading value into *reading
+    if (res != 0) {
+        return false;
+    }
 
-  return true; // return true if success
+    // 20-bit raw ADC temperature: [MSB][LSB][XLSB(7:4)]
+    int32_t adc_T = ((int32_t)data[0] << 12) |
+                    ((int32_t)data[1] << 4)  |
+                    ((int32_t)data[2] >> 4);
+
+    int32_t var1, var2, T;
+
+    var1 = ((((adc_T >> 3) - ((int32_t)dig_T1 << 1))) *
+            ((int32_t)dig_T2)) >> 11;
+
+    var2 = (((((adc_T >> 4) - (int32_t)dig_T1) *
+              ((adc_T >> 4) - (int32_t)dig_T1)) >> 12) *
+            (int32_t)dig_T3) >> 14;
+
+    t_fine = var1 + var2;
+
+    T = (t_fine * 5 + 128) >> 8;   // T in 0.01 °C
+
+    *reading = (uint32_t)T;        // e.g. 2508 => 25.08°C
+
+    return true;
 }
+
 
 bool Sensor_EnableSampling(void)
 {
-  // This is where you tell the chip to start sampling
-  // To do this, you need to set the "mode" field of the "ctrl_meas" register to "normal mode" 
-  // (chapters 4.3.4 and 3.6 in the reference manual)
-  return true; // return true if successful
+    uint8_t ctrl_meas = 0x23;  // osrs_t=1, osrs_p=0, mode=normal
+
+    //  0 0 1   0 0 0   1 1  (Temp oversampling x1, Press oversampling, normal mode)
+
+    uint8_t flags = 0;
+
+    int res = i2c_write_reg(i2cDevice, TEMP_SENSOR_I2C_ADDR, TEMP_SENSOR_REG_CTRL_MEAS, ctrl_meas, flags);
+
+    if (res != 0) {
+        return false;
+    }
+
+    return true;
 }
+
 
 bool Sensor_LoadCalibrationData(void)
 {
-  // Get the calibration values, dig_T1, dig_T2, dig_T3, from the sensor, refer to reference manual 3.11.2, 4.2
-  // Store them in the global variables defined up top
-  return true; // return true if successful
+    uint8_t buf[TEMP_SENSOR_CALIB_LENGTH];
+    uint8_t flags = 0;
+
+    int res = i2c_read_regs(i2cDevice, TEMP_SENSOR_I2C_ADDR, TEMP_SENSOR_REG_CALIB_START, buf, TEMP_SENSOR_CALIB_LENGTH, flags);
+    
+    if (res != 0) {
+        printf("Calibration read failed, res=%d\n", res);
+        return false;
+    }
+
+    // LSB first, then MSB (little endian)
+    dig_T1 = (uint16_t)(buf[1] << 8 | buf[0]);
+    dig_T2 = (int16_t)(buf[3] << 8 | buf[2]);
+    dig_T3 = (int16_t)(buf[5] << 8 | buf[4]);
+
+    printf("Calib T1=%u, T2=%d, T3=%d\n", dig_T1, dig_T2, dig_T3);
+
+    return true;
 }
 
 bool Sensor_Init(void)
