@@ -1,6 +1,9 @@
 /*
- * In this task we only have two classes of nodes; the root which receives data, and the sensor nodes which send sensor data to the root node.
+ In this task we only have two classes of nodes; the root which receives data, and the sensor nodes which send sensor data to the root node.
  */
+
+#include <stdint.h>
+
 typedef enum
 {
   WSN_UNSET_ROLE,
@@ -17,9 +20,11 @@ typedef enum
 typedef enum
 {
   WSN_IPC_START = 0xfff0, // To not overlap with RIOT's own IPC types we start ours from 0xfff0
-  WSN_IPC_PERIODIC_OPERATION,
+  //WSN_IPC_PERIODIC_OPERATION,
   /* Fill this in as needed ... */
-  WS_IPC_MAX
+  WSN_IPC_SAMPLE,          // sensor sampling event
+  WSN_IPC_SEND,            // send event
+  WSN_IPC_MAX
 } WSN_IPC_e;
 
 /*
